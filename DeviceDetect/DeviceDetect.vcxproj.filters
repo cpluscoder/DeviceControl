@@ -1,0 +1,177 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="源文件">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="头文件">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="资源文件">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="AutoCriticalSection.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="ConnectionInfo.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="DeviceInfo.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="DeviceWatcher.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="EnumDevices.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="EnumDisks.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="NotifyWindow.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="ResultEnumerator.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="stdafx.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="Utilities.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="Win_AutoHandle.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="Win_CriticalSection.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="Win_ManualResetEvent.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="Win_Thread.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="Win_WaitObject.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="BlackBerryUsbEnumerator.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="ModemEnumeraror.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="MSChecker.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="MSEnumerator.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="UsbEnumerator.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="AbstractDeviceWatcher.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="AbstractUsbEnumerator.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="ModemDeviceChecker.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="AutoCriticalSection.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ConnectionInfo.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="DeviceInfo.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="DeviceWatcher.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="EnumDevices.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="EnumDisks.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ICollector.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="IDeviceChanged.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="IDeviceWatcherObserver.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="IEnumerator.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="NotifyWindow.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ResultEnumerator.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="stdafx.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Utilities.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Win_AutoHandle.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Win_CriticalSection.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Win_ManualResetEvent.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Win_Thread.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Win_WaitObject.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Win32Types.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="BlackBerryUsbEnumerator.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ModemEnumeraror.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="MSChecker.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="MSEnumerator.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="UsbEnumerator.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="AbstractDeviceWatcher.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="AbstractUsbEnumerator.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ModemDeviceChecker.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="ClassDiagram1.cd" />
+  </ItemGroup>
+</Project>
