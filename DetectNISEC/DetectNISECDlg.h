@@ -4,6 +4,9 @@
 
 #pragma once
 
+#define SHOW_NOTIFY_ICON	0
+
+#include <string>
 
 // CDetectNISECDlg 对话框
 class CDetectNISECDlg : public CDialogEx
@@ -18,10 +21,23 @@ protected:
 		@retval		函数执行成功
 		@remark		RegisterDeviceNotification also allows a service handle be used, so a similar wrapper function to this one supporting that scenario could be made from this template.
 	*/
-	BOOL CDetectNISECDlg::DoRegisterDeviceInterfaceToHwnd(IN GUID InterfaceClassGuid, IN HWND hWnd, OUT HDEVNOTIFY *hDeviceNotify);
+	bool DoRegisterDeviceInterfaceToHwnd(IN GUID InterfaceClassGuid, IN HWND hWnd, OUT HDEVNOTIFY *hDeviceNotify);
+
+	void OnDeviceArrival(LPARAM lParam);
+	void OnDeviceRemoveComplete(LPARAM lParam);
+
+	bool GetChangeDeviceInfo(LPARAM lParam, std::string &strGuid, std::string &strDeviceName);
 
 protected:
 	HDEVNOTIFY m_hDeviceNotify;
+
+#if	SHOW_NOTIFY_ICON
+	void PopupMenu(UINT nFlags, int x, int y);
+	bool ShowBalloonTip(LPCTSTR szTitle, LPCTSTR szMsg, UINT uTimeout = 3000, DWORD dwInfoFlags = NIIF_INFO);
+
+	CMenu m_popupMenu;/// 系统托盘弹出菜单
+	NOTIFYICONDATA m_NotifyIconData;/// 系统托盘控制
+#endif
 
 // 构造
 public:
@@ -45,7 +61,12 @@ protected:
 	afx_msg HCURSOR OnQueryDragIcon();
 	DECLARE_MESSAGE_MAP()
 public:
+#if SHOW_NOTIFY_ICON
+	afx_msg LRESULT OnIconNotification(WPARAM wParam, LPARAM lParam);
+	afx_msg void OnBnClickedBtnShowTip();
+#endif
 	afx_msg void OnBnClickedBtnTest();
 	afx_msg void OnClose();
 	virtual LRESULT DefWindowProc(UINT message, WPARAM wParam, LPARAM lParam);
+	afx_msg void OnDestroy();
 };

@@ -15,6 +15,7 @@
 #endif
 
 
+using namespace std;
 
 // 用于应用程序“关于”菜单项的 CAboutDlg 对话框
 
@@ -69,6 +70,11 @@ BEGIN_MESSAGE_MAP(CDetectNISECDlg, CDialogEx)
 	ON_WM_QUERYDRAGICON()
 	ON_BN_CLICKED(IDC_BTN_TEST, &CDetectNISECDlg::OnBnClickedBtnTest)
 	ON_WM_CLOSE()
+	ON_WM_DESTROY()
+#if SHOW_NOTIFY_ICON
+	ON_MESSAGE(WM_NOTIFY_ICON, &CDetectNISECDlg::OnIconNotification)
+	ON_BN_CLICKED(IDC_BTN_SHOW_TIP, &CDetectNISECDlg::OnBnClickedBtnShowTip)
+#endif
 END_MESSAGE_MAP()
 
 
@@ -110,7 +116,21 @@ BOOL CDetectNISECDlg::OnInitDialog()
 		OutputDebugString(TEXT("DoRegisterDeviceInterfaceToHwnd failed"));
 		return FALSE;
 	}
+#if	SHOW_NOTIFY_ICON
+	/// 托盘图标
+	memset(&m_NotifyIconData, '\0', sizeof(m_NotifyIconData));
+	m_NotifyIconData.cbSize = sizeof(NOTIFYICONDATA);
+	m_NotifyIconData.hIcon = ::AfxGetApp()->LoadIcon(IDR_MAINFRAME);
+	m_NotifyIconData.hWnd = GetSafeHwnd();
+	strcpy_s(m_NotifyIconData.szTip, 128, "USB设备检查程序");
+	m_NotifyIconData.uFlags = NIF_MESSAGE | NIF_TIP | NIF_ICON;
+	m_NotifyIconData.uID = IDR_MAINFRAME;
+	m_NotifyIconData.uCallbackMessage = WM_NOTIFY_ICON;
+	::Shell_NotifyIcon(NIM_ADD, &m_NotifyIconData);
 
+	/// 载入菜单
+	m_popupMenu.LoadMenu(IDR_MENU_POPUP);
+#endif
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
 
@@ -121,6 +141,13 @@ void CDetectNISECDlg::OnSysCommand(UINT nID, LPARAM lParam)
 		CAboutDlg dlgAbout;
 		dlgAbout.DoModal();
 	}
+#if	SHOW_NOTIFY_ICON
+	else if(nID == SC_MINIMIZE)
+	{
+		/// 最小化
+		ShowWindow(SW_HIDE);
+	}
+#endif
 	else
 	{
 		CDialogEx::OnSysCommand(nID, lParam);
@@ -170,38 +197,55 @@ void CDetectNISECDlg::OnClose()
 	{
 		OutputDebugString(TEXT("UnregisterDeviceNotification failed"));
 	}
-
+#if	SHOW_NOTIFY_ICON
+	::Shell_NotifyIcon(NIM_DELETE, &m_NotifyIconData);	//程序退出时删除系统托盘图标
+#endif
 	CDialogEx::OnClose();
 }
 
+void CDetectNISECDlg::OnDestroy()
+{
+	CDialogEx::OnDestroy();
+
+	// TODO: 在此处添加消息处理程序代码
+	if(!UnregisterDeviceNotification(m_hDeviceNotify))
+	{
+		OutputDebugString(TEXT("UnregisterDeviceNotification failed"));
+	}
+#if	SHOW_NOTIFY_ICON
+	::Shell_NotifyIcon(NIM_DELETE, &m_NotifyIconData);	//程序退出时删除系统托盘图标
+#endif
+}
 
 LRESULT CDetectNISECDlg::DefWindowProc(UINT message, WPARAM wParam, LPARAM lParam)
 {
 	// TODO: 在此添加专用代码和/或调用基类
 	if(message == WM_DEVICECHANGE)
 	{
+		//TRACE("WM_DEVICECHANGE\n");
+		//CUsbEnumerator::Pointer pUsbEnumerator = CUsbEnumerator::Create();
+		//pUsbEnumerator->Start();
 /**	@note	
 	This is the actual message from the interface via Windows messaging.
 	This code includes some additional decoding for this particular device type and some common validation checks.
 	Note that not all devices utilize these optional parameters in the same way.
 	Refer to the extended information for your particular device type specified by your GUID.
 */
-		PDEV_BROADCAST_DEVICEINTERFACE b = (PDEV_BROADCAST_DEVICEINTERFACE)lParam;
 		switch(wParam)
 		{
 		case DBT_DEVICEARRIVAL:
 			{
-				OutputDebugString("DBT_DEVICEARRIVAL\n");
+				OnDeviceArrival(lParam);
 			}
 			break;
 		case DBT_DEVICEREMOVECOMPLETE:
 			{
-				OutputDebugString("DBT_DEVICEREMOVECOMPLETE\n");
+				OnDeviceRemoveComplete(lParam);
 			}
 			break;
 		case DBT_DEVNODES_CHANGED:
 			{
-				OutputDebugString("DBT_DEVNODES_CHANGED\n");
+				//OutputDebugString("DBT_DEVNODES_CHANGED\n");
 			}
 			break;
 		default:
@@ -211,74 +255,11 @@ LRESULT CDetectNISECDlg::DefWindowProc(UINT message, WPARAM wParam, LPARAM lPara
 			break;
 		}
 	}
-/*
-	switch(message)
-	{
-	//case WM_PAINT:
-	//	{
-	//		PAINTSTRUCT ps;
-	//		HDC hdc = BeginPaint(hWnd, &ps);
-	//		EndPaint(hWnd, &ps);
-	//	}
-	//	break;
-	case WM_DEVICECHANGE:
-		{
-			if((wParam == DBT_DEVICEARRIVAL) || (wParam == DBT_DEVICEREMOVECOMPLETE))
-			{
-				try
-				{
-					DEV_BROADCAST_HDR* header = reinterpret_cast<DEV_BROADCAST_HDR*>(lParam);
-					if(header->dbch_devicetype == DBT_DEVTYP_VOLUME)
-					{
-						DEV_BROADCAST_VOLUME* devNot = reinterpret_cast<DEV_BROADCAST_VOLUME*>(lParam);
-						std::vector<std::wstring> drives = DrivesFromMask(devNot->dbcv_unitmask);
-						for(std::vector<std::wstring>::const_iterator it = drives.begin(); it != drives.end(); ++it)
-						{
-							if(DBT_DEVICEARRIVAL == wParam)
-							{
-								g_NotifyWindow->deviceChanged_.VolumeArrival(*it);
-							}
-							else
-							{
-								g_NotifyWindow->deviceChanged_.VolumeRemoved(*it);
-							}
-						}
-					}
-					if(header->dbch_devicetype == DBT_DEVTYP_DEVICEINTERFACE)
-					{
-						DEV_BROADCAST_DEVICEINTERFACE* devNot = reinterpret_cast<DEV_BROADCAST_DEVICEINTERFACE*>(lParam);
-						if(DBT_DEVICEARRIVAL == wParam)
-						{
-							g_NotifyWindow->deviceChanged_.InterfaceArrival(devNot->dbcc_classguid);
-						}
-						else
-						{
-							g_NotifyWindow->deviceChanged_.InterfaceRemoved(Utilities::StringUpper(devNot->dbcc_name));
-						}
-					}
-				}
-				catch(const std::runtime_error& ex)
-				{
-					ex.what();
-					//"ERROR: Processing WM_DEVICECHANGE failed
-				}
-			}
-		}
-		break;
-	//case WM_DESTROY:
-	//	{
-	//		PostQuitMessage(0);
-	//	}
-	//	break;
-	default:
-		break;
-	}
-*/
 
 	return CDialogEx::DefWindowProc(message, wParam, lParam);
 }
 
-BOOL CDetectNISECDlg::DoRegisterDeviceInterfaceToHwnd(IN GUID InterfaceClassGuid, IN HWND hWnd, OUT HDEVNOTIFY *hDeviceNotify)
+bool CDetectNISECDlg::DoRegisterDeviceInterfaceToHwnd(IN GUID InterfaceClassGuid, IN HWND hWnd, OUT HDEVNOTIFY *hDeviceNotify)
 {
 	DEV_BROADCAST_DEVICEINTERFACE NotificationFilter;
 
@@ -295,11 +276,11 @@ BOOL CDetectNISECDlg::DoRegisterDeviceInterfaceToHwnd(IN GUID InterfaceClassGuid
 
 	if(NULL == *hDeviceNotify)
 	{
-		OutputDebugString(TEXT("RegisterDeviceNotification"));
-		return FALSE;
+		OutputDebugString("RegisterDeviceNotification failed");
+		return false;
 	}
 
-	return TRUE;
+	return true;
 }
 
 
@@ -308,4 +289,145 @@ void CDetectNISECDlg::OnBnClickedBtnTest()
 	// TODO: 在此添加控件通知处理程序代码
 	CUsbEnumerator::Pointer pUsbEnumerator = CUsbEnumerator::Create();
 	pUsbEnumerator->Start();
+}
+
+#if	SHOW_NOTIFY_ICON
+LRESULT CDetectNISECDlg::OnIconNotification(WPARAM wParam, LPARAM lParam)
+{
+	if(wParam != m_NotifyIconData.uID)
+	{
+		return FALSE;
+	}
+	switch(lParam)
+	{
+	case WM_LBUTTONDOWN:
+		{
+			BOOL bVisible = ::IsWindowVisible(GetSafeHwnd());
+			ShowWindow(bVisible ? SW_HIDE : SW_SHOW);
+			if(!bVisible)
+			{
+				SetForegroundWindow();
+			}
+		}
+		break;
+	case WM_RBUTTONDOWN:
+		{
+			CPoint point;
+			::GetCursorPos(&point);
+			SetForegroundWindow();
+			PopupMenu(TPM_LEFTBUTTON | TPM_RIGHTALIGN, point.x, point.y);
+		}
+		break;
+	default:
+		break;
+	}
+
+	return TRUE;  
+}
+
+void CDetectNISECDlg::PopupMenu(UINT nFlags, int x, int y)
+{
+	CMenu * pMenu = m_popupMenu.GetSubMenu(0);
+	if(pMenu != nullptr)
+	{
+		pMenu->TrackPopupMenu(nFlags, x, y, this);
+	}
+}
+
+bool CDetectNISECDlg::ShowBalloonTip(LPCTSTR szTitle, LPCTSTR szMsg, UINT uTimeout, DWORD dwInfoFlags)
+{
+	m_NotifyIconData.cbSize = sizeof(NOTIFYICONDATA);
+	m_NotifyIconData.uFlags = NIF_INFO;
+	m_NotifyIconData.uTimeout = uTimeout;
+	m_NotifyIconData.dwInfoFlags = dwInfoFlags;
+
+	strcpy_s(m_NotifyIconData.szInfoTitle, szTitle);
+	strcpy_s(m_NotifyIconData.szInfo, szMsg);
+
+	return Shell_NotifyIcon(NIM_MODIFY, &m_NotifyIconData) == TRUE;
+}
+
+void CDetectNISECDlg::OnBnClickedBtnShowTip()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	ShowBalloonTip("提示", "发现新硬件");
+}
+
+#endif
+
+
+void CDetectNISECDlg::OnDeviceArrival(LPARAM lParam)
+{
+	OutputDebugString("CDetectNISECDlg::OnDeviceArrival\n");
+
+	string strGuid, strDeviceName;
+	GetChangeDeviceInfo(lParam, strGuid, strDeviceName);
+}
+
+void CDetectNISECDlg::OnDeviceRemoveComplete(LPARAM lParam)
+{
+	OutputDebugString("CDetectNISECDlg::OnDeviceRemoveComplete\n");
+
+	string strGuid, strDeviceName;
+	GetChangeDeviceInfo(lParam, strGuid, strDeviceName);
+}
+
+bool CDetectNISECDlg::GetChangeDeviceInfo(LPARAM lParam, string &strGuid, string &strDeviceName)
+{
+	bool bSuccess = false;
+
+	do 
+	{
+		try
+		{
+			DEV_BROADCAST_HDR* pDeviceHeader = reinterpret_cast<DEV_BROADCAST_HDR *>(lParam);
+			if(pDeviceHeader == nullptr)
+			{
+				break;
+			}
+			if(DBT_DEVTYP_DEVICEINTERFACE != pDeviceHeader->dbch_devicetype)
+			{
+				break;
+			}
+
+			PDEV_BROADCAST_DEVICEINTERFACE pDeviceBroadcast = (PDEV_BROADCAST_DEVICEINTERFACE)lParam;
+			if(pDeviceBroadcast == nullptr)
+			{
+				break;
+			}
+			strDeviceName = boost::algorithm::to_upper_copy(string(pDeviceBroadcast->dbcc_name));
+
+			char szBuf[256];
+			ZeroMemory(szBuf, sizeof(szBuf));
+			sprintf_s(
+				szBuf, 
+				sizeof(szBuf), 
+				"{%08X-%04X-%04x-%02X%02X-%02X%02X%02X%02X%02X%02X}",
+				pDeviceBroadcast->dbcc_classguid.Data1,
+				pDeviceBroadcast->dbcc_classguid.Data2,
+				pDeviceBroadcast->dbcc_classguid.Data3,
+				pDeviceBroadcast->dbcc_classguid.Data4[0],
+				pDeviceBroadcast->dbcc_classguid.Data4[1],
+				pDeviceBroadcast->dbcc_classguid.Data4[2],
+				pDeviceBroadcast->dbcc_classguid.Data4[3],
+				pDeviceBroadcast->dbcc_classguid.Data4[4],
+				pDeviceBroadcast->dbcc_classguid.Data4[5],
+				pDeviceBroadcast->dbcc_classguid.Data4[6],
+				pDeviceBroadcast->dbcc_classguid.Data4[7]);
+
+			strGuid = boost::algorithm::to_upper_copy(string(szBuf));
+
+			TRACE("name:%s\nguid:%s\n", strDeviceName.c_str(), strGuid.c_str());
+		}
+		catch(const std::runtime_error& ex)
+		{
+			TRACE("CDetectNISECDlg::GetChangeDeviceInfo catch exception:%s\n", ex.what());
+			return false;
+		}
+
+		bSuccess = true;
+
+	} while (false);
+	
+	return bSuccess;
 }
