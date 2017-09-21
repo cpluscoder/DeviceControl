@@ -7,7 +7,7 @@
 #include "DetectNISECDlg.h"
 #include "afxdialogex.h"
 #include <dbt.h>
-#include "UsbEnumerator.h"
+#include "InquireNumber.h"
 
 
 #ifdef _DEBUG
@@ -68,9 +68,9 @@ BEGIN_MESSAGE_MAP(CDetectNISECDlg, CDialogEx)
 	ON_WM_SYSCOMMAND()
 	ON_WM_PAINT()
 	ON_WM_QUERYDRAGICON()
-	ON_BN_CLICKED(IDC_BTN_TEST, &CDetectNISECDlg::OnBnClickedBtnTest)
 	ON_WM_CLOSE()
 	ON_WM_DESTROY()
+	ON_MESSAGE(WM_ENUM_USB_DEVICE_COMPLETE, &CDetectNISECDlg::OnEnumDeviceComplete)
 #if SHOW_NOTIFY_ICON
 	ON_MESSAGE(WM_NOTIFY_ICON, &CDetectNISECDlg::OnIconNotification)
 	ON_BN_CLICKED(IDC_BTN_SHOW_TIP, &CDetectNISECDlg::OnBnClickedBtnShowTip)
@@ -110,6 +110,8 @@ BOOL CDetectNISECDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// 设置小图标
 
 	// TODO: 在此添加额外的初始化代码
+	m_pUsbEnumerator = CUsbEnumerator::Create();
+
 	const GUID guidDEVINTERFACE_USB_DEVICE = { 0xA5DCBF10L, 0x6530, 0x11D2, { 0x90, 0x1F, 0x00, 0xC0, 0x4F, 0xB9, 0x51, 0xED } };
 	if(!DoRegisterDeviceInterfaceToHwnd(guidDEVINTERFACE_USB_DEVICE, GetSafeHwnd(), &m_hDeviceNotify))
 	{
@@ -223,8 +225,6 @@ LRESULT CDetectNISECDlg::DefWindowProc(UINT message, WPARAM wParam, LPARAM lPara
 	if(message == WM_DEVICECHANGE)
 	{
 		//TRACE("WM_DEVICECHANGE\n");
-		//CUsbEnumerator::Pointer pUsbEnumerator = CUsbEnumerator::Create();
-		//pUsbEnumerator->Start();
 /**	@note	
 	This is the actual message from the interface via Windows messaging.
 	This code includes some additional decoding for this particular device type and some common validation checks.
@@ -283,14 +283,6 @@ bool CDetectNISECDlg::DoRegisterDeviceInterfaceToHwnd(IN GUID InterfaceClassGuid
 	return true;
 }
 
-
-void CDetectNISECDlg::OnBnClickedBtnTest()
-{
-	// TODO: 在此添加控件通知处理程序代码
-	CUsbEnumerator::Pointer pUsbEnumerator = CUsbEnumerator::Create();
-	pUsbEnumerator->Start();
-}
-
 #if	SHOW_NOTIFY_ICON
 LRESULT CDetectNISECDlg::OnIconNotification(WPARAM wParam, LPARAM lParam)
 {
@@ -322,7 +314,7 @@ LRESULT CDetectNISECDlg::OnIconNotification(WPARAM wParam, LPARAM lParam)
 		break;
 	}
 
-	return TRUE;  
+	return 0;
 }
 
 void CDetectNISECDlg::PopupMenu(UINT nFlags, int x, int y)
@@ -358,10 +350,16 @@ void CDetectNISECDlg::OnBnClickedBtnShowTip()
 
 void CDetectNISECDlg::OnDeviceArrival(LPARAM lParam)
 {
-	OutputDebugString("CDetectNISECDlg::OnDeviceArrival\n");
+	//OutputDebugString("CDetectNISECDlg::OnDeviceArrival\n");
 
 	string strGuid, strDeviceName;
-	GetChangeDeviceInfo(lParam, strGuid, strDeviceName);
+	if(GetChangeDeviceInfo(lParam, strGuid, strDeviceName))
+	{
+		if(m_pUsbEnumerator)
+		{
+			m_pUsbEnumerator->Start(GetSafeHwnd(), USB_DEVICE_HARDWARE_ID, USB_DEVICE_FRIENDLY_NAME);
+		}
+	}
 }
 
 void CDetectNISECDlg::OnDeviceRemoveComplete(LPARAM lParam)
@@ -370,6 +368,11 @@ void CDetectNISECDlg::OnDeviceRemoveComplete(LPARAM lParam)
 
 	string strGuid, strDeviceName;
 	GetChangeDeviceInfo(lParam, strGuid, strDeviceName);
+
+	//if(m_pUsbEnumerator)
+	//{
+	//	m_pUsbEnumerator->Start(GetSafeHwnd(), USB_DEVICE_HARDWARE_ID, USB_DEVICE_FRIENDLY_NAME);
+	//}
 }
 
 bool CDetectNISECDlg::GetChangeDeviceInfo(LPARAM lParam, string &strGuid, string &strDeviceName)
@@ -430,4 +433,25 @@ bool CDetectNISECDlg::GetChangeDeviceInfo(LPARAM lParam, string &strGuid, string
 	} while (false);
 	
 	return bSuccess;
+}
+
+LRESULT CDetectNISECDlg::OnEnumDeviceComplete(WPARAM wParam, LPARAM lParam)
+{
+	if(m_pUsbEnumerator)
+	{
+		string strDeviceName = m_pUsbEnumerator->GetDeviceName();
+		if(!strDeviceName.empty())
+		{
+			/// 查询税控盘编号
+			TRACE("查询税控盘编号:%s\n", strDeviceName.c_str());
+			string strDeviceNumber;
+			CInquireNumber inquireNumber;
+			if(inquireNumber.GetDeviceNumber(strDeviceName, strDeviceNumber))
+			{
+				TRACE("税控盘编号:%s\n", strDeviceNumber.c_str());
+			}
+		}
+	}
+
+	return 0;
 }

@@ -112,6 +112,7 @@
     <ClInclude Include="CommonDef.h" />
     <ClInclude Include="DetectNISEC.h" />
     <ClInclude Include="DetectNISECDlg.h" />
+    <ClInclude Include="InquireNumber.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
@@ -121,6 +122,7 @@
     <ClCompile Include="CommonDef.cpp" />
     <ClCompile Include="DetectNISEC.cpp" />
     <ClCompile Include="DetectNISECDlg.cpp" />
+    <ClCompile Include="InquireNumber.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>

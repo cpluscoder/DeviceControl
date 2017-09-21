@@ -162,6 +162,8 @@ typedef enum _ModalDlgType
 #define WM_SHOW_SEARCH_PATH			(WM_USER + 0x109)	/// 自定义消息----显示当前搜索路径
 #define WM_AUTO_SEARCH				(WM_USER + 0x10A)	/// 自定义消息----执行自动搜索
 
+#define WM_ENUM_USB_DEVICE_COMPLETE	(WM_USER + 0x10B)	/// 自定义消息----枚举USB设备结束
+
 ///	消息参数
 //#define CLEAR_INVOICE_DATA_LIST		1					/*!< 清空主窗口销项发票数据列表 */
 #define COLLECT_INVOICE_DATA		0					/*!< 采集到销项发票数据 */
@@ -230,6 +232,10 @@ typedef enum _ModalDlgType
 #define COLLECT_RST_NO_DATA				"采集期间,无销项发票数据"
 #define COLLECT_RST_SUCCESS				"采集成功"
 #define COLLECT_RST_SEND_FAILED			"向云端提交销项发票数据失败"
+
+#define USB_DEVICE_HARDWARE_ID			"USBSTOR\\DiskNISEC___TCG-01__________5.00"
+#define USB_DEVICE_FRIENDLY_NAME		"NISEC TCG-01 USB Device"
+
 
 //////////////////////////////////////////////////////////////////////////
 ///	XML文件协议
@@ -351,106 +357,4 @@ protected:
 
 protected:
 	boost::interprocess::interprocess_semaphore m_semaphore;
-};
-
-class CConnectionInfo
-{
-	DEFINE_BOOST_SHARED_PTR(CConnectionInfo)
-public:
-
-	typedef enum _DeviceType
-	{
-		TypeUnknown = 0,
-		TypeSerial,
-		TypeUsb,
-		TypePureUsb
-	}DeviceType;
-
-	virtual ~CConnectionInfo(void) { Clear(); }
-
-	void Clear(void)
-	{
-		m_emType = TypeUnknown;
-		FriendlyName.clear();
-		DevicePath.clear();
-		HardwareID.clear();
-		PhysicalDeviceName.clear();
-		DeviceDescription.clear();
-		ServiceName.clear();
-	}
-
-	DeviceType m_emType;
-	std::string DevicePath;
-	std::string FriendlyName;
-	std::string HardwareID;
-	std::string PhysicalDeviceName;
-	std::string DeviceDescription;
-	std::string ServiceName;
-
-protected:
-	explicit CConnectionInfo(void) { Clear(); }
-};
-
-class CDeviceInfo
-{
-public:
-	typedef boost::shared_ptr<CDeviceInfo> Pointer;
-	static CDeviceInfo::Pointer Create(void)
-	{
-		return CDeviceInfo::Pointer(new CDeviceInfo);
-	}
-
-	static CDeviceInfo::Pointer Create(
-		const std::string& strId, 
-		const std::string& strName, 
-		const std::string& strDeviceDisplayName, 
-		const CConnectionInfo::Pointer& pConnectionInfo)
-	{
-		return CDeviceInfo::Pointer(new CDeviceInfo(strId, strName, strDeviceDisplayName, pConnectionInfo));
-	}
-
-	virtual ~CDeviceInfo(void) {}
-
-public:
-	inline const std::string& GetId(void) const { return m_strId; }
-
-	inline const std::string& GetName(void) const { return m_strName; }
-
-	inline void SetName(const std::string& strName) { m_strName = strName; }
-
-	inline std::string GetDeviceDisplayName(void) const { return m_strDeviceDisplayName; }
-
-	inline void SetDeviceDisplayName(const std::string& strDeviceDisplayName) { m_strDeviceDisplayName = strDeviceDisplayName; }
-
-	inline const CConnectionInfo::Pointer& GetConnectionInfo(void) const { return m_pConnectionInfo; }
-	//inline void SetConnectionInfo(const CConnectionInfo::Pointer& pConnectionInfo) { m_pConnectionInfo = pConnectionInfo; }
-
-private:
-	CDeviceInfo::CDeviceInfo(void) : m_strDeviceDisplayName("Unknown device")
-	{
-		m_strId.clear();
-		m_strDeviceDisplayName.clear();
-		m_strName.clear();
-		m_pConnectionInfo = CConnectionInfo::Create();
-	}
-
-	CDeviceInfo::CDeviceInfo(
-		const std::string& strId, 
-		const std::string& strName, 
-		const std::string& strDeviceDisplayName, 
-		const CConnectionInfo::Pointer& pConnectionInfo)
-		: m_strId(boost::algorithm::to_upper_copy(strId))
-		, m_strName(strName)
-		, m_strDeviceDisplayName(strDeviceDisplayName)
-		, m_pConnectionInfo(pConnectionInfo)
-	{}
-
-	CDeviceInfo(const CDeviceInfo&);
-	CDeviceInfo& operator=(const CDeviceInfo&);
-
-private:
-	std::string m_strId;
-	std::string m_strName;
-	std::string m_strDeviceDisplayName;
-	CConnectionInfo::Pointer m_pConnectionInfo;
 };

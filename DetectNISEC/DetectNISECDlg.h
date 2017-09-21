@@ -6,7 +6,7 @@
 
 #define SHOW_NOTIFY_ICON	0
 
-#include <string>
+#include "UsbEnumerator.h"
 
 // CDetectNISECDlg ¶Ô»°¿ò
 class CDetectNISECDlg : public CDialogEx
@@ -30,6 +30,8 @@ protected:
 
 protected:
 	HDEVNOTIFY m_hDeviceNotify;
+
+	CUsbEnumerator::Pointer m_pUsbEnumerator;
 
 #if	SHOW_NOTIFY_ICON
 	void PopupMenu(UINT nFlags, int x, int y);
@@ -65,8 +67,8 @@ public:
 	afx_msg LRESULT OnIconNotification(WPARAM wParam, LPARAM lParam);
 	afx_msg void OnBnClickedBtnShowTip();
 #endif
-	afx_msg void OnBnClickedBtnTest();
-	afx_msg void OnClose();
 	virtual LRESULT DefWindowProc(UINT message, WPARAM wParam, LPARAM lParam);
+	afx_msg void OnClose();
 	afx_msg void OnDestroy();
+	afx_msg LRESULT OnEnumDeviceComplete(WPARAM wParam, LPARAM lParam);
 };

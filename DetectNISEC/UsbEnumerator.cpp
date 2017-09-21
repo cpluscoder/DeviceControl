@@ -8,6 +8,7 @@ using namespace std;
 CUsbEnumerator::CUsbEnumerator(void)
 {
 	m_bThreadRun = false;
+
 	Clear();
 }
 
@@ -21,13 +22,24 @@ CUsbEnumerator::~CUsbEnumerator(void)
 
 void CUsbEnumerator::Clear(void)
 {
-	m_mapDevId2Info.clear();
+	m_hMainWnd = nullptr;
+
+	m_strHardwareId.clear();
+
+	m_strFriendlyName.clear();
+
+	m_strDeviceName.clear();
 }
 
-bool CUsbEnumerator::Start(void)
+bool CUsbEnumerator::Start(HWND hMainWnd, const string &strHardwareId, const string &strFriendlyName)
 {
 	if(!m_bThreadRun)
 	{
+		m_hMainWnd = hMainWnd;
+		m_strHardwareId = strHardwareId;
+		m_strFriendlyName = strFriendlyName;
+		m_strDeviceName.clear();
+
 		m_threadEnum = boost::thread(boost::bind(&CUsbEnumerator::EnumThread, this));
 		m_bThreadRun = true;
 	}
@@ -47,202 +59,25 @@ void CUsbEnumerator::Stop(void)
 
 void CUsbEnumerator::EnumThread()
 {
-	EnumUsb();
+	TRACE("---Start--- UsbEnumerator(%s)\n", COleDateTime::GetCurrentTime().Format("%H:%M:%S"));
 
-	EnumMS();
-}
+	SearchRemovalDisks();
 
-void CUsbEnumerator::EnumUsb(void)
-{
-	GUID guid = { 0xA5DCBF10L, 0x6530, 0x11D2, { 0x90, 0x1F, 0x00, 0xC0, 0x4F, 0xB9, 0x51, 0xED } };
-	vector<CConnectionInfo::Pointer> vctResult;
-	GetDevicesByGuid(guid, vctResult);
-	vector<CConnectionInfo::Pointer>::const_iterator iter;
-	for(iter = vctResult.begin(); iter != vctResult.end(); ++iter)
+	if(m_hMainWnd != nullptr)
 	{
-		const CConnectionInfo::Pointer &pConnectionInfo = *iter;
-		CDeviceInfo::Pointer pDeviceInfo = CDeviceInfo::Create(
-			pConnectionInfo->DevicePath, pConnectionInfo->FriendlyName, "Unknown device", pConnectionInfo);
-		m_mapDevId2Info[pDeviceInfo->GetId()] = pDeviceInfo;
-	}
-}
-
-void CUsbEnumerator::EnumMS(void)
-{
-	try
-	{
-		vector<CRemovableDeviceInfo::Pointer> vctDisk;
-		SearchRemovalDisks(vctDisk);
-		for(auto iter = vctDisk.begin(); iter != vctDisk.end(); ++iter)
+		if(::IsWindow(m_hMainWnd))
 		{
-			CRemovableDeviceInfo::Pointer pRemovableDeviceInfo = *iter;
-			CConnectionInfo::Pointer pConnectionInfo = CConnectionInfo::Create();
-
-			pConnectionInfo->m_emType = CConnectionInfo::TypeUnknown;
-			pConnectionInfo->FriendlyName = pRemovableDeviceInfo->strFriendlyName;
-			pConnectionInfo->DevicePath = pRemovableDeviceInfo->strDevInterfaceVolume;
-			pConnectionInfo->HardwareID = pRemovableDeviceInfo->strHardwareID;
-			pConnectionInfo->PhysicalDeviceName = pRemovableDeviceInfo->strEnumeratorName;
-			pConnectionInfo->DeviceDescription = pRemovableDeviceInfo->strDeviceDesc;
-			pConnectionInfo->ServiceName = pRemovableDeviceInfo->strCompatibleIDs;
-
-			CDeviceInfo::Pointer pDeviceInfo = CDeviceInfo::Create(pRemovableDeviceInfo->strHardwareID, 
-				pRemovableDeviceInfo->strFriendlyName, "Mass Storage device", pConnectionInfo);
-			m_mapDevId2Info[pRemovableDeviceInfo->strHardwareID] = pDeviceInfo;
-		}
-	}
-	catch(const std::exception& ex)
-	{
-		ex.what();
-		// EXCEPTION: Cannot do SearchRemovalDisks(). Error = %s", ex.what());
-	}
-}
-
-bool CUsbEnumerator::GetDevicesByGuid(const GUID &guid, vector<CConnectionInfo::Pointer> &vctResult)
-{
-	vctResult.clear();
-	HDEVINFO hDeviceInfo = ::SetupDiGetClassDevs(&guid, NULL, NULL, DIGCF_DEVICEINTERFACE | DIGCF_PRESENT);
-	if(INVALID_HANDLE_VALUE == hDeviceInfo) 
-	{
-		return false;
-	}
-
-	DWORD dwCount = 0;
-	SP_DEVICE_INTERFACE_DATA devInterfaceData;
-	while(true)
-	{
-		ZeroMemory(&devInterfaceData, sizeof(SP_DEVICE_INTERFACE_DATA));
-		devInterfaceData.cbSize = sizeof(SP_DEVICE_INTERFACE_DATA);
-		if(!::SetupDiEnumDeviceInterfaces(hDeviceInfo, NULL, &guid, dwCount, &devInterfaceData))
-		{
-			break;
-		}
-
-		try
-		{
-			CConnectionInfo::Pointer pConnectionInfo = CConnectionInfo::Create();
-			if(PureChecker(hDeviceInfo, &devInterfaceData, pConnectionInfo))
-			{
-				vctResult.push_back(pConnectionInfo);
-			}
-		}
-		catch(const std::exception & ex)
-		{
-			TRACE("%s\n", ex.what());
-		}
-		
-		++dwCount;
-	}
-
-	::SetupDiDestroyDeviceInfoList(hDeviceInfo);
-
-	return true;
-}
-
-bool CUsbEnumerator::PureChecker(
-	HDEVINFO hDeviceInfo, SP_DEVICE_INTERFACE_DATA* devInterfaceData, CConnectionInfo::Pointer &pConnectionInfo)
-{
-	pConnectionInfo->Clear();
-	char szBuffer[0x400] = {0x00};
-	PSP_DEVICE_INTERFACE_DETAIL_DATA pDevInfoDetail = (PSP_DEVICE_INTERFACE_DETAIL_DATA)szBuffer;
-	pDevInfoDetail->cbSize = sizeof(SP_DEVICE_INTERFACE_DETAIL_DATA);
-
-	SP_DEVINFO_DATA devInfoData;
-	ZeroMemory(&devInfoData, sizeof(SP_DEVINFO_DATA));
-	devInfoData.cbSize = sizeof(SP_DEVINFO_DATA);
-
-	DWORD dwReqSize = 0;
-	if(!::SetupDiGetDeviceInterfaceDetail(hDeviceInfo, devInterfaceData, 
-		pDevInfoDetail, sizeof(szBuffer)/sizeof(szBuffer[0]), &dwReqSize, &devInfoData))
-	{
-		throw std::runtime_error("Can't SetupDiGetInterfaceDeviceDetail");
-		return false;
-	}
-
-	pConnectionInfo->m_emType = CConnectionInfo::TypeUsb;
-
-	TRACE("\nFriendlyName:\t");
-	if(!GetDeviceRegistryProperty(hDeviceInfo, &devInfoData, SPDRP_FRIENDLYNAME, pConnectionInfo->FriendlyName))
-	{
-		TRACE("\n");
-	}
-	TRACE("HardwareID:\t\t");
-	if(!GetDeviceRegistryProperty(hDeviceInfo, &devInfoData, SPDRP_HARDWAREID, pConnectionInfo->HardwareID))
-	{
-		TRACE("\n");
-	}
-	TRACE("DeviceDesc:\t\t");
-	if(!GetDeviceRegistryProperty(hDeviceInfo, &devInfoData, SPDRP_DEVICEDESC, pConnectionInfo->DeviceDescription))
-	{
-		TRACE("\n");
-	}
-	TRACE("Service:\t\t");
-	if(!GetDeviceRegistryProperty(hDeviceInfo, &devInfoData, SPDRP_SERVICE, pConnectionInfo->ServiceName))
-	{
-		TRACE("\n");
-	}
-	pConnectionInfo->DevicePath = pDevInfoDetail->DevicePath;
-	TRACE("DevicePath:\t\t%s\n", pConnectionInfo->DevicePath.c_str());
-	
-	return true;
-}
-
-bool CUsbEnumerator::GetDeviceRegistryProperty(
-	HDEVINFO & hDeviceInfo, PSP_DEVINFO_DATA pDevInfoData, DWORD dwProperty, string &strProperty)
-{
-	strProperty.clear();
-
-	if(NULL == pDevInfoData)
-	{
-		throw std::runtime_error("Wrong PSP_DEVINFO_DATA parameter");
-	}
-
-	DWORD dwSize = 0, dwDataType = 0;
-	if(!::SetupDiGetDeviceRegistryProperty(hDeviceInfo, pDevInfoData, dwProperty, &dwDataType, NULL, 0, &dwSize))
-	{
-		DWORD error = ::GetLastError();
-		if(ERROR_INVALID_DATA == error)
-		{
-			return false;
-		}
-		if(ERROR_INSUFFICIENT_BUFFER != error)
-		{
-			// Can't get Device Registry Property");
-			throw std::runtime_error("Can't get Device Registry Property");
+			::PostMessage(m_hMainWnd, WM_ENUM_USB_DEVICE_COMPLETE, NULL, NULL);
 		}
 	}
 
-	vector<char> vctResult(dwSize, 0x00);
-	if(vctResult.empty())
-	{
-		// Can't get Device Registry Property is empty");
-		throw std::runtime_error("Can't get Device Registry Property is empty");
-	}
+	TRACE("---Stop --- UsbEnumerator(%s)\n", COleDateTime::GetCurrentTime().Format("%H:%M:%S"));
 
-	if(!::SetupDiGetDeviceRegistryProperty(hDeviceInfo, pDevInfoData, 
-		dwProperty, &dwDataType, (PBYTE)&vctResult.front(), (DWORD)vctResult.size(), &dwSize))
-	{
-		// Can't get Device Registry Property");
-		throw std::runtime_error("Can't get Device Registry Property");
-	}
-
-	vctResult.resize(dwSize);
-	if(vctResult.empty())
-	{
-		// Device Registry Property is empty");
-		throw std::runtime_error("Device Registry Property is empty");
-	}
-
-	strProperty = string(&vctResult.front());
-	TRACE("%s\n", strProperty.c_str());
-
-	return true;
+	m_bThreadRun = false;
 }
 
-bool CUsbEnumerator::SearchRemovalDisks(vector<CRemovableDeviceInfo::Pointer> &vctDevice)
+bool CUsbEnumerator::SearchRemovalDisks(void)
 {
-	vctDevice.clear();
-
 	/*GUID_DEVCLASS_DISKDRIVE*/
 	CONST CLSID CLSID_DeviceInstance = { 0x4D36E967, 0xE325, 0x11CE, { 0xbf, 0xc1, 0x08, 0x00, 0x2b, 0xe1, 0x03, 0x18 } };
 	HDEVINFO hDeviceInfo = ::SetupDiGetClassDevs(&CLSID_DeviceInstance, NULL, NULL, DIGCF_PRESENT);
@@ -251,13 +86,15 @@ bool CUsbEnumerator::SearchRemovalDisks(vector<CRemovableDeviceInfo::Pointer> &v
 		return false;
 	}
 
+	DWORD dwCount = 0;
+	DWORD dwSize = 0;
+	DWORD dwDataType = 0;
+	DWORD dwRemovalPolicy = 0;
+	string strHardwareId;
+	string strFriendlyName;
+
 	try
 	{
-		DWORD dwCount = 0;
-		DWORD dwSize = 0;
-		DWORD dwDataType = 0;
-		DWORD dwRemovalPolicy = 0;
-
 		do 
 		{
 			dwSize = 0;
@@ -276,17 +113,20 @@ bool CUsbEnumerator::SearchRemovalDisks(vector<CRemovableDeviceInfo::Pointer> &v
 			{
 				if(CM_REMOVAL_POLICY_EXPECT_NO_REMOVAL != dwRemovalPolicy)
 				{
-					CRemovableDeviceInfo::Pointer pDevInfo = CRemovableDeviceInfo::Create();
-					GetDeviceRegistryProperty(hDeviceInfo, &devInfoData, SPDRP_DEVICEDESC, pDevInfo->strDeviceDesc);
-					GetDeviceRegistryProperty(hDeviceInfo, &devInfoData, SPDRP_ENUMERATOR_NAME, pDevInfo->strEnumeratorName);
-					GetDeviceRegistryProperty(hDeviceInfo, &devInfoData, SPDRP_COMPATIBLEIDS, pDevInfo->strCompatibleIDs);
-					GetDeviceRegistryProperty(hDeviceInfo, &devInfoData, SPDRP_HARDWAREID, pDevInfo->strHardwareID);
-					GetDeviceRegistryProperty(hDeviceInfo, &devInfoData, SPDRP_MFG, pDevInfo->strMFG);
-					GetDeviceRegistryProperty(hDeviceInfo, &devInfoData, SPDRP_FRIENDLYNAME, pDevInfo->strFriendlyName);
-					GetDevInterfaceVolume(&devInfoData, pDevInfo->strDevInterfaceVolume);
-					pDevInfo->emDeviceType = GetDeviceType(&devInfoData);
+					TRACE("SPDRP_HARDWAREID:");
+					GetDeviceRegistryProperty(hDeviceInfo, &devInfoData, SPDRP_HARDWAREID, strHardwareId);
 
-					vctDevice.push_back(pDevInfo);
+					TRACE("SPDRP_FRIENDLYNAME:");
+					GetDeviceRegistryProperty(hDeviceInfo, &devInfoData, SPDRP_FRIENDLYNAME, strFriendlyName);
+					
+					if(boost::algorithm::iequals(m_strHardwareId, strHardwareId) && boost::algorithm::iequals(m_strFriendlyName, strFriendlyName))
+					{
+						if(GetDevInterfaceVolume(&devInfoData, m_strDeviceName))
+						{
+							TRACE("DevInterfaceVolume:%s\n", m_strDeviceName.c_str());
+						}
+						break;
+					}
 				}
 			}
 
@@ -295,10 +135,9 @@ bool CUsbEnumerator::SearchRemovalDisks(vector<CRemovableDeviceInfo::Pointer> &v
 		} while (true);
 
 		::SetupDiDestroyDeviceInfoList(hDeviceInfo);
-
 		return true;
 	}
-	catch(...)
+	catch(const std::exception& ex)
 	{
 		::SetupDiDestroyDeviceInfoList(hDeviceInfo);
 		throw;
@@ -310,12 +149,11 @@ bool CUsbEnumerator::SearchRemovalDisks(vector<CRemovableDeviceInfo::Pointer> &v
 bool CUsbEnumerator::GetDevInterfaceVolume(PSP_DEVINFO_DATA pDevInfoData, string &strVolume)
 {
 	ULONG ulSize = 0;
-	DEVINST childDevInst;
 	bool isDisk = false;
+	DEVINST childDevInst;
 
-	if(NULL == pDevInfoData)
+	if(nullptr == pDevInfoData)
 	{
-		// Wrong PSP_DEVINFO_DATA parameter
 		throw std::runtime_error("Wrong PSP_DEVINFO_DATA parameter");
 	}
 
@@ -327,63 +165,87 @@ bool CUsbEnumerator::GetDevInterfaceVolume(PSP_DEVINFO_DATA pDevInfoData, string
 	}
 	else if(CR_SUCCESS != dwRtn)
 	{
-		// Can't get Child Device Instance
 		throw std::runtime_error("Can't get Child Device Instance");
 	}
 
 	char bDeviceID[MAX_DEVICE_ID_LEN] = {0};
 	if(CR_SUCCESS != CM_Get_Device_ID_Ex(childDevInst, bDeviceID, sizeof(bDeviceID)/sizeof(char), 0, NULL))
 	{
-		// Can't get Device ID");
 		throw std::runtime_error("Can't get Device ID");
 	}
 
 	LPGUID InterfaceClassGuid = isDisk ? (LPGUID)&DiskClassGuid : (LPGUID)&VolumeClassGuid;
-
 	if(CR_SUCCESS != CM_Get_Device_Interface_List_Size(&ulSize, InterfaceClassGuid, bDeviceID, 0))
 	{
-		// Can't get Device Instance List Size");
 		throw std::runtime_error("Can't get Device Instance List Size");
 	}
 
 	vector<char> sResult(ulSize, 0x00);
 	if(sResult.empty())
 	{
-		// Device Interface Volume is empty");
 		throw std::runtime_error("Device Interface Volume is empty");
 	}
 
 	InterfaceClassGuid = isDisk ? (LPGUID)&GUID_DEVINTERFACE_DISK : (LPGUID)&GUID_DEVINTERFACE_VOLUME;
-
 	if(CR_SUCCESS != CM_Get_Device_Interface_List(InterfaceClassGuid, bDeviceID, &sResult.front(), ulSize, 0))
 	{
-		// Can't get Device Instance List");
 		throw std::runtime_error("Can't get Device Instance List");
 	}
 
 	sResult.resize(ulSize);
 	if(sResult.empty())
 	{
-		// Device Interface Volume is empty
 		throw std::runtime_error("Device Interface Volume is empty");
 	}
 
 	string strResult(&sResult.front());
 	strVolume = strResult;
 
-	return true;
+	return !strVolume.empty();
 }
 
-CRemovableDeviceInfo::RemovableDeviceType CUsbEnumerator::GetDeviceType(PSP_DEVINFO_DATA pDevInfoData)
+bool CUsbEnumerator::GetDeviceRegistryProperty(HDEVINFO & hDeviceInfo, PSP_DEVINFO_DATA pDevInfoData, DWORD dwProperty, string &strProperty)
 {
-	DEVINST childDevInst;
+	strProperty.clear();
 
-	if(CR_NO_SUCH_DEVNODE == CM_Get_Child_Ex(&childDevInst, pDevInfoData->DevInst, 0, NULL))
+	if(nullptr == pDevInfoData)
 	{
-		return CRemovableDeviceInfo::rdtHardDisk;
+		throw std::runtime_error("Wrong PSP_DEVINFO_DATA parameter");
 	}
-	else
+
+	DWORD dwSize = 0, dwDataType = 0;
+	if(!::SetupDiGetDeviceRegistryProperty(hDeviceInfo, pDevInfoData, dwProperty, &dwDataType, NULL, 0, &dwSize))
 	{
-		return CRemovableDeviceInfo::rdtFlash;
+		DWORD error = ::GetLastError();
+		if(ERROR_INVALID_DATA == error)
+		{
+			return false;
+		}
+		if(ERROR_INSUFFICIENT_BUFFER != error)
+		{
+			throw std::runtime_error("Can't get Device Registry Property");
+		}
 	}
+
+	vector<char> vctResult(dwSize, 0x00);
+	if(vctResult.empty())
+	{
+		throw std::runtime_error("Can't get Device Registry Property is empty");
+	}
+
+	if(!::SetupDiGetDeviceRegistryProperty(hDeviceInfo, pDevInfoData, dwProperty, &dwDataType, (PBYTE)&vctResult.front(), (DWORD)vctResult.size(), &dwSize))
+	{
+		throw std::runtime_error("Can't get Device Registry Property");
+	}
+
+	vctResult.resize(dwSize);
+	if(vctResult.empty())
+	{
+		throw std::runtime_error("Device Registry Property is empty");
+	}
+
+	strProperty = string(&vctResult.front());
+	TRACE("%s\n", strProperty.c_str());
+
+	return true;
 }
